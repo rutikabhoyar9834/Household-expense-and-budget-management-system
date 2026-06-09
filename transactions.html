@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}Transaction History{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <h1 class="display-5 fw-bold fade-in-up">
+            <i class="fas fa-history"></i> Transaction History
+        </h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <label>Start Date</label>
+        <input type="date" class="form-control" id="startDate">
+    </div>
+    <div class="col-md-3">
+        <label>End Date</label>
+        <input type="date" class="form-control" id="endDate">
+    </div>
+    <div class="col-md-3">
+        <label>Category</label>
+        <select class="form-select" id="filterCategory">
+            <option value="">All Categories</option>
+            <optgroup label="Income Categories">
+                <option value="Salary">Salary</option>
+                <option value="Freelance">Freelance</option>
+                <option value="Business">Business</option>
+                <option value="Investments">Investments</option>
+                <option value="Other">Other Income</option>
+            </optgroup>
+            <optgroup label="Expense Categories">
+                <option value="Food">Food</option>
+                <option value="Rent">Rent</option>
+                <option value="Electricity">Electricity</option>
+                <option value="Water">Water</option>
+                <option value="Internet">Internet</option>
+                <option value="Travel">Travel</option>
+                <option value="Shopping">Shopping</option>
+                <option value="Healthcare">Healthcare</option>
+                <option value="Education">Education</option>
+                <option value="Entertainment">Entertainment</option>
+            </optgroup>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label>Sort By</label>
+        <select class="form-select" id="sortBy">
+            <option value="date_desc">Date (Newest)</option>
+            <option value="date_asc">Date (Oldest)</option>
+            <option value="amount_desc">Amount (Highest)</option>
+            <option value="amount_asc">Amount (Lowest)</option>
+        </select>
+    </div>
+    <div class="col-md-1">
+        <label>&nbsp;</label>
+        <button class="btn btn-primary w-100" onclick="filterTransactions()">
+            <i class="fas fa-search"></i>
+        </button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card fade-in-up">
+            <div class="card-header">
+                <i class="fas fa-list"></i> Transactions
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="transactionsTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionsBody">
+                            <tr>
+                                <td colspan="5" class="text-center">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let allTransactions = [];
+
+$(document).ready(function() {
+    // Set default date range (last 30 days)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    
+    $('#startDate').val(startDate.toISOString().split('T')[0]);
+    $('#endDate').val(endDate.toISOString().split('T')[0]);
+    
+    loadAllTransactions();
+});
+
+function loadAllTransactions() {
+    // Load income and expenses
+    Promise.all([
+        $.ajax({ url: '/api/income', method: 'GET' }),
+        $.ajax({ url: '/api/expenses', method: 'GET' })
+    ]).then(([income, expenses]) => {
+        const incomeTransactions = income.map(inc => ({
+            ...inc,
+            type: 'Income',
+            date: inc.date
+        }));
+        
+        const expenseTransactions = expenses.map(exp => ({
+            ...exp,
+            type: 'Expense',
+            date: exp.date
+        }));
+        
+        allTransactions = [...incomeTransactions, ...expenseTransactions];
+        filterTransactions();
+    }).catch(error => {
+        console.error('Error loading transactions:', error);
+        $('#transactionsBody').html('<tr><td colspan="5" class="text-center">Error loading transactions</td></tr>');
+    });
+}
+
+function filterTransactions() {
+    const startDate = $('#startDate').val();
+    const endDate = $('#endDate').val();
+    const category = $('#filterCategory').val();
+    const sortBy = $('#sortBy').val();
+    
+    let filtered = [...allTransactions];
+    
+    // Filter by date range
+    if (startDate) {
+        filtered = filtered.filter(t => t.date >= startDate);
+    }
+    if (endDate) {
+        filtered = filtered.filter(t => t.date <= endDate);
+    }
+    
+    // Filter by category
+    if (category) {
+        filtered = filtered.filter(t => t.category === category);
+    }
+    
+    // Sort
+    switch(sortBy) {
+        case 'date_desc':
+            filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+            break;
+        case 'date_asc':
+            filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+            break;
+        case 'amount_desc':
+            filtered.sort((a, b) => b.amount - a.amount);
+            break;
+        case 'amount_asc':
+            filtered.sort((a, b) => a.amount - b.amount);
+            break;
+    }
+    
+    displayTransactions(filtered);
+}
+
+function displayTransactions(transactions) {
+    const tbody = $('#transactionsBody');
+    tbody.empty();
+    
+    if (transactions.length === 0) {
+        tbody.html('<tr><td colspan="5" class="text-center">No transactions found</td></tr>');
+        return;
+    }
+    
+    transactions.forEach(transaction => {
+        const row = `
+            <tr>
+                <td>${formatDate(transaction.date)}</td>
+                <td>
+                    <span class="badge ${transaction.type === 'Income' ? 'bg-success' : 'bg-danger'}">
+                        ${transaction.type}
+                    </span>
+                </td>
+                <td>${transaction.category}</td>
+                <td>${transaction.description || '-'}</td>
+                <td class="${transaction.type === 'Income' ? 'text-success' : 'text-danger'}">
+                    ${transaction.type === 'Income' ? '+' : '-'} ${formatCurrency(transaction.amount)}
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    });
+}
+
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR'
+    }).format(amount);
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN');
+}
+</script>
+{% endblock %}

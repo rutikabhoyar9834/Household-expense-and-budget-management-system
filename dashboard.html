@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-5 fw-bold fade-in-up">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </h1>
+            <p class="text-muted">Welcome back, {{ current_user.full_name or current_user.username }}!</p>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="stat-card fade-in-up" style="animation-delay: 0.1s">
+                <div class="stat-icon income">
+                    <i class="fas fa-arrow-up"></i>
+                </div>
+                <div class="stat-value" id="totalIncome">₹0</div>
+                <div class="stat-label">Total Income (This Month)</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card fade-in-up" style="animation-delay: 0.2s">
+                <div class="stat-icon expense">
+                    <i class="fas fa-arrow-down"></i>
+                </div>
+                <div class="stat-value" id="totalExpenses">₹0</div>
+                <div class="stat-label">Total Expenses (This Month)</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card fade-in-up" style="animation-delay: 0.3s">
+                <div class="stat-icon savings">
+                    <i class="fas fa-piggy-bank"></i>
+                </div>
+                <div class="stat-value" id="totalSavings">₹0</div>
+                <div class="stat-label">Savings (This Month)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card fade-in-up" style="animation-delay: 0.4s">
+                <div class="card-header">
+                    <i class="fas fa-chart-pie"></i> Expense Distribution
+                </div>
+                <div class="card-body">
+                    <canvas id="expensePieChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card fade-in-up" style="animation-delay: 0.5s">
+                <div class="card-header">
+                    <i class="fas fa-chart-line"></i> Monthly Trend
+                </div>
+                <div class="card-body">
+                    <canvas id="monthlyTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Transactions and Bills -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card fade-in-up" style="animation-delay: 0.6s">
+                <div class="card-header">
+                    <i class="fas fa-history"></i> Recent Transactions
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="recentTransactionsTable">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Category</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentTransactionsBody">
+                                <tr>
+                                    <td colspan="4" class="text-center">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card fade-in-up" style="animation-delay: 0.7s">
+                <div class="card-header">
+                    <i class="fas fa-bell"></i> Upcoming Bills
+                </div>
+                <div class="card-body" id="upcomingBills">
+                    <div class="text-center">Loading bills...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Spinner -->
+<div class="spinner-overlay" id="loadingSpinner">
+    <div class="spinner"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+{% endblock %}

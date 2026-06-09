@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+
+{% block title %}Reports & Analytics{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <h1 class="display-5 fw-bold fade-in-up">
+            <i class="fas fa-chart-bar"></i> Reports & Analytics
+        </h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <select class="form-select" id="yearSelect">
+            <option value="2023">2023</option>
+            <option value="2024">2024</option>
+            <option value="2025">2025</option>
+            <option value="2026" selected>2026</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <button class="btn btn-primary" onclick="refreshReports()">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card fade-in-up">
+            <div class="card-header">
+                <i class="fas fa-chart-line"></i> Monthly Income vs Expenses
+            </div>
+            <div class="card-body">
+                <canvas id="monthlyComparisonChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card fade-in-up">
+            <div class="card-header">
+                <i class="fas fa-chart-pie"></i> Yearly Expense Distribution
+            </div>
+            <div class="card-body">
+                <canvas id="yearlyExpenseChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card fade-in-up">
+            <div class="card-header">
+                <i class="fas fa-chart-area"></i> Savings Trend Analysis
+            </div>
+            <div class="card-body">
+                <canvas id="savingsTrendChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card fade-in-up">
+            <div class="card-header">
+                <i class="fas fa-lightbulb"></i> Financial Insights
+            </div>
+            <div class="card-body" id="financialInsights">
+                <div class="text-center">Loading insights...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let monthlyChart = null;
+let yearlyChart = null;
+let savingsChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    refreshReports();
+});
+
+function refreshReports() {
+    
+    const year = $('#yearSelect').val();
+    console.log("Selected Year",year);
+    loadMonthlyData(year);
+    loadYearlyData(year);
+    loadSavingsTrend(year);
+    loadFinancialInsights(year);
+}
+
+function loadMonthlyData(year) {
+    $.ajax({
+        url: `/api/reports/monthly?year=${year}`,
+        method: 'GET',
+        success: function(data) {
+            updateMonthlyChart(data);
+        }
+    });
+}
+
+function updateMonthlyChart(data) {
+    const ctx = document.getElementById('monthlyComparisonChart').getContext('2d');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    if (monthlyChart) {
+        monthlyChart.destroy();
+    }
+    
+    monthlyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: months,
+            datasets: [
+                {
+                    label: 'Income',
+                    data: data.map(item => item.income),
+                    backgroundColor: 'rgba(76, 175, 80, 0.5)',
+                    borderColor: '#4caf50',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Expenses',
+                    data: data.map(item => item.expenses),
+                    backgroundColor: 'rgba(244, 67, 54, 0.5)',
+                    borderColor: '#f44336',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    ticks: {
+                        callback: function(value) {
+                            return formatCurrency(value);
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function loadYearlyData(year) {
+    $.ajax({
+        url: `/api/expenses`,
+        method: 'GET',
+        success: function(expenses) {
+            const filteredExpenses = expenses.filter(expense => {
+                const expenseYear = new Date(expense.date).getFullYear();
+                return expenseYear == year;
+            });
+            
+            const categoryTotals = {};
+            filteredExpenses.forEach(expense => {
+                categoryTotals[expense.category] = (categoryTotals[expense.category] || 0) + expense.amount;
+            });
+            
+            updateYearlyChart(categoryTotals);
+        }
+    });
+}
+
+function updateYearlyChart(data) {
+    const ctx = document.getElementById('yearlyExpenseChart').getContext('2d');
+    
+    if (yearlyChart) {
+        yearlyChart.destroy();
+    }
+    
+    yearlyChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: Object.keys(data),
+            datasets: [{
+                data: Object.values(data),
+                backgroundColor: [
+                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+                    '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#36A2EB'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function loadSavingsTrend(year) {
+    $.ajax({
+        url: `/api/reports/monthly?year=${year}`,
+        method: 'GET',
+        success: function(data) {
+            updateSavingsChart(data);
+        }
+    });
+}
+
+function updateSavingsChart(data) {
+    const ctx = document.getElementById('savingsTrendChart').getContext('2d');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const savings = data.map(item => item.savings);
+    
+    if (savingsChart) {
+        savingsChart.destroy();
+    }
+    
+    savingsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: months,
+            datasets: [{
+                label: 'Monthly Savings',
+                data: savings,
+                borderColor: '#ff9800',
+                backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    ticks: {
+                        callback: function(value) {
+                            return formatCurrency(value);
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Savings: ${formatCurrency(context.parsed.y)}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function loadFinancialInsights(year) {
+    $.ajax({
+        url: `/api/reports/monthly?year=${year}`,
+        method: 'GET',
+        success: function(data) {
+            generateInsights(data);
+        }
+    });
+}
+
+function generateInsights(monthlyData) {
+    
+    const container = $('#financialInsights');
+    container.empty();
+    
+    const totalIncome = monthlyData.reduce((sum, month) => sum + month.income, 0);
+    const totalExpenses = monthlyData.reduce((sum, month) => sum + month.expenses, 0);
+    const totalSavings = totalIncome - totalExpenses;
+    const savingsRate = (totalSavings / totalIncome) * 100;
+    
+    // Find best and worst months
+    let bestMonth = { month: 0, savings: -Infinity };
+    let worstMonth = { month: 0, savings: Infinity };
+    
+    monthlyData.forEach((month, index) => {
+        if (month.savings > bestMonth.savings) {
+            bestMonth = { month: index, savings: month.savings };
+        }
+        if (month.savings < worstMonth.savings) {
+            worstMonth = { month: index, savings: month.savings };
+        }
+    });
+    
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                   'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    const insights = `
+        <div class="row">
+            <div class="col-md-6">
+                <div class="alert alert-info">
+                    <i class="fas fa-chart-line"></i>
+                    <strong>Annual Summary:</strong><br>
+                    Total Income: ${formatCurrency(totalIncome)}<br>
+                    Total Expenses: ${formatCurrency(totalExpenses)}<br>
+                    Total Savings: ${formatCurrency(totalSavings)}<br>
+                    Savings Rate: ${savingsRate.toFixed(1)}%
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="alert alert-success">
+                    <i class="fas fa-trophy"></i>
+                    <strong>Best Month:</strong> ${months[bestMonth.month]}<br>
+                    Savings: ${formatCurrency(bestMonth.savings)}
+                </div>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Worst Month:</strong> ${months[worstMonth.month]}<br>
+                    Savings: ${formatCurrency(worstMonth.savings)}
+                </div>
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-md-12">
+                <div class="alert alert-primary">
+                    <i class="fas fa-lightbulb"></i>
+                    <strong>Recommendations:</strong><br>
+                    ${savingsRate < 20 ? 'Consider reducing discretionary spending to increase savings rate above 20%.' : 'Great job! Your savings rate is healthy.'}
+                    ${worstMonth.savings < 0 ? `Focus on reducing expenses during ${months[worstMonth.month]} to avoid negative savings.` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.html(insights);
+}
+
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR'
+    }).format(amount);
+}
+</script>
+{% endblock %}

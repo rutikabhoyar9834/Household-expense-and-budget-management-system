@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block title %}Income Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <h1 class="display-5 fw-bold fade-in-up">
+            <i class="fas fa-plus-circle"></i> Income Management
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card fade-in-up">
+            <div class="card-header">
+                <i class="fas fa-plus"></i> Add New Income
+            </div>
+            <div class="card-body">
+                <form id="incomeForm">
+                    <div class="mb-3">
+                        <label class="form-label">Amount *</label>
+                        <input type="number" class="form-control" id="amount" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Category *</label>
+                        <select class="form-select" id="category" required>
+                            <option value="Salary">Salary</option>
+                            <option value="Freelance">Freelance</option>
+                            <option value="Business">Business</option>
+                            <option value="Investments">Investments</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date *</label>
+                        <input type="date" class="form-control" id="date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" id="description" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-save"></i> Add Income
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card fade-in-up">
+            <div class="card-header">
+                <i class="fas fa-list"></i> Income History
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="incomeTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="incomeTableBody">
+                            <tr>
+                                <td colspan="5" class="text-center">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editIncomeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Income</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editIncomeForm">
+                    <input type="hidden" id="editIncomeId">
+                    <div class="mb-3">
+                        <label class="form-label">Amount</label>
+                        <input type="number" class="form-control" id="editAmount" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <select class="form-select" id="editCategory" required>
+                            <option value="Salary">Salary</option>
+                            <option value="Freelance">Freelance</option>
+                            <option value="Business">Business</option>
+                            <option value="Investments">Investments</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date</label>
+                        <input type="date" class="form-control" id="editDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" id="editDescription" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="updateIncome()">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    loadIncome();
+    $('#date').val(new Date().toISOString().split('T')[0]);
+    
+    $('#incomeForm').on('submit', function(e) {
+        e.preventDefault();
+        addIncome();
+    });
+});
+
+function loadIncome() {
+    $.ajax({
+        url: '/api/income',
+        method: 'GET',
+        success: function(data) {
+            updateIncomeTable(data);
+        },
+        error: function() {
+            $('#incomeTableBody').html('<tr><td colspan="5" class="text-center">Error loading data</td></tr>');
+        }
+    });
+}
+
+function updateIncomeTable(income) {
+    const tbody = $('#incomeTableBody');
+    tbody.empty();
+    
+    if (income.length === 0) {
+        tbody.html('<tr><td colspan="5" class="text-center">No income records found</td></tr>');
+        return;
+    }
+    
+    income.forEach(item => {
+        const row = `
+            <tr>
+                <td>${formatDate(item.date)}</td>
+                <td>${item.category}</td>
+                <td>${item.description || '-'}</td>
+                <td class="text-success">${formatCurrency(item.amount)}</td>
+                <td>
+                    <button class="btn btn-sm btn-warning" onclick="editIncome(${item.id})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteIncome(${item.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    });
+}
+
+function addIncome() {
+    const data = {
+        amount: $('#amount').val(),
+        category: $('#category').val(),
+        date: $('#date').val(),
+        description: $('#description').val()
+    };
+    
+    $.ajax({
+        url: '/api/income',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function() {
+            $('#incomeForm')[0].reset();
+            $('#date').val(new Date().toISOString().split('T')[0]);
+            loadIncome();
+            showNotification('Income added successfully', 'success');
+        },
+        error: function() {
+            showNotification('Error adding income', 'error');
+        }
+    });
+}
+
+function editIncome(id) {
+    $.ajax({
+        url: `/api/income`,
+        method: 'GET',
+        success: function(income) {
+            const item = income.find(i => i.id === id);
+            if (item) {
+                $('#editIncomeId').val(item.id);
+                $('#editAmount').val(item.amount);
+                $('#editCategory').val(item.category);
+                $('#editDate').val(item.date);
+                $('#editDescription').val(item.description);
+                $('#editIncomeModal').modal('show');
+            }
+        }
+    });
+}
+
+function updateIncome() {
+    const id = $('#editIncomeId').val();
+    const data = {
+        amount: $('#editAmount').val(),
+        category: $('#editCategory').val(),
+        date: $('#editDate').val(),
+        description: $('#editDescription').val()
+    };
+    
+    $.ajax({
+        url: `/api/income/${id}`,
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function() {
+            $('#editIncomeModal').modal('hide');
+            loadIncome();
+            showNotification('Income updated successfully', 'success');
+        },
+        error: function() {
+            showNotification('Error updating income', 'error');
+        }
+    });
+}
+
+function deleteIncome(id) {
+    if (confirm('Are you sure you want to delete this income record?')) {
+        $.ajax({
+            url: `/api/income/${id}`,
+            method: 'DELETE',
+            success: function() {
+                loadIncome();
+                showNotification('Income deleted successfully', 'success');
+            },
+            error: function() {
+                showNotification('Error deleting income', 'error');
+            }
+        });
+    }
+}
+
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR'
+    }).format(amount);
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN');
+}
+
+function showNotification(message, type) {
+    const alertDiv = $(`
+        <div class="alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3" style="z-index: 9999;" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `);
+    $('body').append(alertDiv);
+    setTimeout(() => alertDiv.alert('close'), 3000);
+}
+</script>
+{% endblock %}

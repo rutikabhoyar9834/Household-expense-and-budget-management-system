@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}Budget Planner{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <h1 class="display-5 fw-bold fade-in-up">
+            <i class="fas fa-chart-line"></i> Budget Planner
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card fade-in-up">
+            <div class="card-header">
+                <i class="fas fa-sliders-h"></i> Set Monthly Budgets
+            </div>
+            <div class="card-body">
+                <form id="budgetForm">
+                    <div class="mb-3">
+                        <label class="form-label">Month</label>
+                        <input type="month" class="form-control" id="monthYear" required>
+                    </div>
+                    
+                    <div id="budgetCategories">
+                        <div class="mb-3">
+                            <label class="form-label">Food & Dining</label>
+                            <input type="number" class="form-control" id="budget_Food" step="0.01" placeholder="Enter budget amount">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Rent</label>
+                            <input type="number" class="form-control" id="budget_Rent" step="0.01" placeholder="Enter budget amount">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Electricity</label>
+                            <input type="number" class="form-control" id="budget_Electricity" step="0.01" placeholder="Enter budget amount">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Water</label>
+                            <input type="number" class="form-control" id="budget_Water" step="0.01" placeholder="Enter budget amount">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Internet</label>
+                            <input type="number" class="form-control" id="budget_Internet" step="0.01" placeholder="Enter budget amount">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Travel</label>
+                            <input type="number" class="form-control" id="budget_Travel" step="0.01" placeholder="Enter budget amount">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Shopping</label>
+                            <input type="number" class="form-control" id="budget_Shopping" step="0.01" placeholder="Enter budget amount">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Healthcare</label>
+                            <input type="number" class="form-control" id="budget_Healthcare" step="0.01" placeholder="Enter budget amount">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Education</label>
+                            <input type="number" class="form-control" id="budget_Education" step="0.01" placeholder="Enter budget amount">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Entertainment</label>
+                            <input type="number" class="form-control" id="budget_Entertainment" step="0.01" placeholder="Enter budget amount">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-save"></i> Save Budgets
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card fade-in-up">
+            <div class="card-header">
+                <i class="fas fa-chart-pie"></i> Budget Utilization
+            </div>
+            <div class="card-body" id="budgetUtilization">
+                <div class="text-center">Select a month to view budget utilization</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentBudgets = {};
+
+document.addEventListener('DOMContentLoaded', function() {
+    const currentDate = new Date();
+    const currentMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    $('#monthYear').val(currentMonth);
+
+    loadBudgets(currentMonth);
+
+    $('#monthYear').on('change', function() {
+        loadBudgets($(this).val());
+    });
+
+    $('#budgetForm').on('submit', function(e) {
+        e.preventDefault();
+        saveBudgets();
+    });
+});
+
+function loadBudgets(monthYear) {
+    const [year, month] = monthYear.split('-');
+    
+    $.ajax({
+        url: `/api/budgets?month=${month}&year=${year}`,
+        method: 'GET',
+        success: function(budgets) {
+            // Clear all budget inputs
+            $('[id^="budget_"]').val('');
+            
+            // Populate existing budgets
+            budgets.forEach(budget => {
+                $(`#budget_${budget.category}`).val(budget.amount);
+                currentBudgets[budget.category] = budget.amount;
+            });
+            
+            loadBudgetUtilization(month, year);
+        }
+    });
+}
+
+function saveBudgets() {
+    const monthYear = $('#monthYear').val();
+    const [year, month] = monthYear.split('-');
+    
+    const categories = ['Food', 'Rent', 'Electricity', 'Water', 'Internet', 'Travel', 'Shopping', 'Healthcare', 'Education', 'Entertainment'];
+    
+    const savePromises = categories.map(category => {
+        const amount = $(`#budget_${category}`).val();
+        if (amount && amount !== currentBudgets[category]) {
+            return $.ajax({
+                url: '/api/budgets',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    category: category,
+                    amount: amount,
+                    month: parseInt(month),
+                    year: parseInt(year)
+                })
+            });
+        }
+        return Promise.resolve();
+    });
+    
+    Promise.all(savePromises).then(() => {
+        showNotification('Budgets saved successfully', 'success');
+        loadBudgets(monthYear);
+    }).catch(() => {
+        showNotification('Error saving budgets', 'error');
+    });
+}
+
+function loadBudgetUtilization(month, year) {
+    // Get actual expenses for the selected month
+    $.ajax({
+        url: '/api/expenses',
+        method: 'GET',
+        success: function(expenses) {
+            const filteredExpenses = expenses.filter(expense => {
+                const expenseDate = new Date(expense.date);
+                return expenseDate.getMonth() + 1 === parseInt(month) && expenseDate.getFullYear() === parseInt(year);
+            });
+            
+            // Calculate total by category
+            const categoryTotals = {};
+            filteredExpenses.forEach(expense => {
+                categoryTotals[expense.category] = (categoryTotals[expense.category] || 0) + expense.amount;
+            });
+            
+            // Get budgets
+            $.ajax({
+                url: `/api/budgets?month=${month}&year=${year}`,
+                method: 'GET',
+                success: function(budgets) {
+                    displayBudgetUtilization(budgets, categoryTotals);
+                }
+            });
+        }
+    });
+}
+
+function displayBudgetUtilization(budgets, actualTotals) {
+    const container = $('#budgetUtilization');
+    container.empty();
+    
+    if (budgets.length === 0) {
+        container.html('<div class="text-center">No budgets set for this month</div>');
+        return;
+    }
+    
+    budgets.forEach(budget => {
+        const actual = actualTotals[budget.category] || 0;
+        const percentage = (actual / budget.amount) * 100;
+        let progressClass = 'bg-success';
+        let alertMessage = '';
+        
+        if (percentage > 100) {
+            progressClass = 'bg-danger';
+            alertMessage = '<div class="alert alert-danger mt-2">Budget exceeded by ' + formatCurrency(actual - budget.amount) + '!</div>';
+        } else if (percentage > 80) {
+            progressClass = 'bg-warning';
+        }
+        
+        const budgetCard = `
+            <div class="mb-4">
+                <div class="d-flex justify-content-between mb-1">
+                    <strong>${budget.category}</strong>
+                    <span>${formatCurrency(actual)} / ${formatCurrency(budget.amount)}</span>
+                </div>
+                <div class="progress">
+                    <div class="progress-bar ${progressClass}" role="progressbar" style="width: ${Math.min(percentage, 100)}%"></div>
+                </div>
+                ${alertMessage}
+            </div>
+        `;
+        
+        container.append(budgetCard);
+    });
+}
+
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+    }).format(amount);
+}
+
+function showNotification(message, type) {
+    const alertDiv = $(`
+        <div class="alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3" style="z-index: 9999;" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `);
+    $('body').append(alertDiv);
+    setTimeout(() => alertDiv.alert('close'), 3000);
+}
+</script>
+{% endblock %}

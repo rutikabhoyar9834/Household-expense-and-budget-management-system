@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card fade-in-up">
+            <div class="card-header">
+                <i class="fas fa-user-circle"></i> Profile Settings
+            </div>
+            <div class="card-body">
+                <form id="profileForm">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="fullName">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phone Number</label>
+                        <input type="tel" class="form-control" id="phone">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Currency</label>
+                        <select class="form-select" id="currency">
+                            <option value="USD">USD - US Dollar</option>
+                            <option value="EUR">EUR - Euro</option>
+                            <option value="GBP">GBP - British Pound</option>
+                            <option value="JPY">JPY - Japanese Yen</option>
+                            <option value="CAD">CAD - Canadian Dollar</option>
+                            <option value="AUD">AUD - Australian Dollar</option>
+                            <option value="IND">IND - Indian Rupee</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Update Profile
+                    </button>
+                </form>
+                
+                <hr>
+                
+                <h5>Account Statistics</h5>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="alert alert-info">
+                            <strong>Member since:</strong><br>
+                            <span id="memberSince">-</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="alert alert-success">
+                            <strong>Total Transactions:</strong><br>
+                            <span id="totalTransactions">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    loadProfile();
+    
+    $('#profileForm').on('submit', function(e) {
+        e.preventDefault();
+        updateProfile();
+    });
+});
+
+function loadProfile() {
+    $.ajax({
+        url: '/api/user/profile',
+        method: 'GET',
+        success: function(user) {
+            $('#fullName').val(user.full_name || '');
+            $('#username').val(user.username);
+            $('#email').val(user.email);
+            $('#phone').val(user.phone || '');
+            $('#currency').val(user.currency || 'IND');
+            
+            // Load account statistics
+            loadAccountStats();
+        },
+        error: function() {
+            showNotification('Error loading profile', 'error');
+        }
+    });
+}
+
+function loadAccountStats() {
+    $.ajax({
+        url: '/api/dashboard/stats',
+        method: 'GET',
+        success: function(stats) {
+            // Get member since from user creation (would need additional endpoint)
+            $('#memberSince').text('2024');
+            
+            // Get total transactions count
+            $.ajax({
+                url: '/api/income',
+                method: 'GET',
+                success: function(income) {
+                    $.ajax({
+                        url: '/api/expenses',
+                        method: 'GET',
+                        success: function(expenses) {
+                            const totalCount = income.length + expenses.length;
+                            $('#totalTransactions').text(totalCount);
+                        }
+                    });
+                }
+            });
+        }
+    });
+}
+
+function updateProfile() {
+    const data = {
+        full_name: $('#fullName').val(),
+        phone: $('#phone').val(),
+        currency: $('#currency').val()
+    };
+    
+    $.ajax({
+        url: '/api/user/profile',
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function() {
+            showNotification('Profile updated successfully', 'success');
+        },
+        error: function() {
+            showNotification('Error updating profile', 'error');
+        }
+    });
+}
+
+function showNotification(message, type) {
+    const alertDiv = $(`
+        <div class="alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3" style="z-index: 9999;" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `);
+    $('body').append(alertDiv);
+    setTimeout(() => alertDiv.alert('close'), 3000);
+}
+</script>
+{% endblock %}

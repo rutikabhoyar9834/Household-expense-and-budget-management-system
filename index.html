@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="row min-vh-100 align-items-center">
+    <div class="col-md-6 fade-in-up">
+        <h1 class="display-3 fw-bold mb-4">
+            Take Control of Your<br>
+            <span class="text-primary">Financial Future</span>
+        </h1>
+        <p class="lead mb-4">
+            Track expenses, manage budgets, achieve savings goals and get insights 
+            into your spending habits with our comprehensive expense management system.
+        </p>
+        <div class="d-grid gap-3 d-sm-flex">
+            <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-user-plus"></i> Get Started</a>
+            <a href="{{ url_for('login') }}" class="btn btn-outline-primary btn-lg">
+                <i class="fas fa-sign-in-alt"></i> Login</a>
+        </div>
+        
+        <div class="row mt-5">
+            <div class="col-md-4">
+                <div class="text-center">
+                    <i class="fas fa-chart-line fa-3x text-primary mb-2"></i>
+                    <h5>Smart Analytics</h5>
+                    <p class="small">Visual insights into your spending</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <i class="fas fa-bell fa-3x text-primary mb-2"></i>
+                    <h5>Bill Reminders</h5>
+                    <p class="small">Never miss a payment</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <i class="fas fa-bullseye fa-3x text-primary mb-2"></i>
+                    <h5>Goal Tracking</h5>
+                    <p class="small">Achieve your financial dreams</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 d-none d-md-block fade-in-up">
+        <div class="text-center">
+            <i class="fas fa-chart-pie fa-10x text-primary opacity-50"></i>
+        </div>
+    </div>
+</div>
+{% endblock %}
